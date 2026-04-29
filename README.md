@@ -1,5 +1,11 @@
 # Crypto Price Telegram Bot
 
+![Python](https://img.shields.io/badge/Python-3.11%2B-blue)
+![Pyrogram](https://img.shields.io/badge/Telegram-Pyrogram-blue)
+![HTTPX](https://img.shields.io/badge/HTTP-httpx-green)
+![Docker](https://img.shields.io/badge/Deploy-Docker-2496ED)
+![License](https://img.shields.io/badge/License-MIT-yellow)
+
 A Telegram bot for cryptocurrency prices, conversions, DEX pool lookup, wallet balance fallback, gas tracking, and simple math calculations.
 
 ## Features
@@ -200,3 +206,7 @@ This bot uses free public endpoints:
 - A public currency API for fiat conversions.
 
 Public endpoints may rate-limit or timeout. The bot includes caching, retries, and provider cooldowns to reduce this risk.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
