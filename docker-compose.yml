@@ -1,0 +1,14 @@
+services:
+  crypto-price-bot:
+    build: .
+    container_name: crypto-price-bot
+    env_file:
+      - .env
+    environment:
+      PYROGRAM_WORKDIR: /app/data
+    restart: unless-stopped
+    volumes:
+      - bot-session:/app/data
+
+volumes:
+  bot-session:

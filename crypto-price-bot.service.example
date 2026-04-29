@@ -1,0 +1,16 @@
+[Unit]
+Description=Crypto Price Telegram Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/crypto-price-bot
+EnvironmentFile=/opt/crypto-price-bot/.env
+ExecStart=/opt/crypto-price-bot/.venv/bin/python telegram_bot.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
