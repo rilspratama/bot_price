@@ -236,9 +236,14 @@ async def start(_: Client, message: Message) -> None:
         f"├ {code('10000 IDR ETH')}\n"
         f"├ {code('2 * 2')}\n"
         f"├ {code('/list MON')}\n"
-        f"└ {code('/gas')}"
+        f"├ {code('/gas')}\n"
+        f"└ {code('/about')}"
     )
     await reply_with_delete(message, text)
+
+
+async def about_command(_: Client, message: Message) -> None:
+    await reply_with_delete(message, format_about())
 
 
 async def price_command(_: Client, message: Message) -> None:
@@ -711,6 +716,24 @@ def usd_price_source_from_coin_price(price: CoinPrice) -> UsdPriceSource:
         name=price.name,
         price_usd=price.price_usd,
         provider="CoinGecko",
+    )
+
+
+def format_about() -> str:
+    return "\n".join(
+        [
+            f"🤖 {bold('Crypto Price Telegram Bot')}",
+            f"├ {underline('What it does')}",
+            f"├ Tracks cryptocurrency prices and market data.",
+            f"├ Converts crypto-to-crypto and crypto-to-fiat values.",
+            f"├ Looks up DEX pools through GeckoTerminal.",
+            f"├ Falls back to public RPC wallet balances for EVM and Solana addresses.",
+            f"├ Shows multi-chain gas estimates with USD cost estimates.",
+            f"├ Supports simple math expressions like {code('2 * 2')}.",
+            f"├ {underline('Main commands')}",
+            f"├ {code('/price BTC')} · {code('/list MON')} · {code('/gas')}",
+            f"└ {italic('Powered by CoinGecko, GeckoTerminal, public RPC, and Pyrogram')}",
+        ]
     )
 
 
@@ -1220,11 +1243,12 @@ def create_app() -> Client:
     client.add_handler(CallbackQueryHandler(dex_callback, filters.regex(f"^{DEX_CALLBACK_PREFIX}")))
     client.add_handler(CallbackQueryHandler(gas_callback, filters.regex(f"^{GAS_CALLBACK_PREFIX}")))
     client.add_handler(MessageHandler(start, filters.command("start")))
+    client.add_handler(MessageHandler(about_command, filters.command("about")))
     client.add_handler(MessageHandler(price_command, filters.command("price")))
     client.add_handler(MessageHandler(list_command, filters.command("list")))
     client.add_handler(MessageHandler(gas_command, filters.command("gas")))
     client.add_handler(
-        MessageHandler(text_message, filters.text & ~filters.command(["start", "price", "list", "gas"]))
+        MessageHandler(text_message, filters.text & ~filters.command(["start", "about", "price", "list", "gas"]))
     )
     return client
 

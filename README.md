@@ -175,6 +175,7 @@ sudo systemctl restart crypto-price-bot
 
 ```text
 /start
+/about
 /price BTC
 /list MON
 /gas
