@@ -17,27 +17,27 @@ from coingecko import (
 
 async def async_main() -> int:
     parser = argparse.ArgumentParser(
-        description="Cek harga cryptocurrency dari CoinGecko berdasarkan symbol, nama, atau coin ID."
+        description="Check cryptocurrency prices from CoinGecko by symbol, name, or coin ID."
     )
     parser.add_argument(
         "query",
-        help="Symbol/nama coin, contoh: BTC, ETH, XLM. Bisa juga coin ID jika memakai --id.",
+        help="Coin symbol/name, for example: BTC, ETH, XLM. Can also be a coin ID when using --id.",
     )
     parser.add_argument(
         "--id",
         action="store_true",
-        help="Anggap query sebagai CoinGecko coin ID langsung, contoh: bitcoin, ethereum, stellar.",
+        help="Treat query as a direct CoinGecko coin ID, for example: bitcoin, ethereum, stellar.",
     )
     parser.add_argument(
         "--list",
         action="store_true",
-        help="Tampilkan beberapa kandidat coin, bukan langsung memakai hasil pertama.",
+        help="Show multiple coin candidates instead of using the first result directly.",
     )
     parser.add_argument(
         "--limit",
         type=int,
         default=10,
-        help="Jumlah kandidat yang ditampilkan saat memakai --list. Default: 10.",
+        help="Number of candidates to show when using --list. Default: 10.",
     )
 
     args = parser.parse_args()
@@ -75,13 +75,13 @@ def print_coin_price(price: CoinPrice) -> None:
     print(f"Coin: {price.name} ({price.symbol})")
     print(f"ID: {price.coin_id}")
     print(f"Rank: {_format_rank(price.market_cap_rank)}")
-    print(f"Harga USD: {_format_money(price.price_usd)}")
-    print(f"Perubahan 24j: {_format_percentage(price.price_change_24h)}")
-    print(f"High 24j USD: {_format_money(price.high_24h_usd)}")
-    print(f"Low 24j USD: {_format_money(price.low_24h_usd)}")
-    print(f"Volume 24j USD: {_format_money(price.volume_24h_usd)}")
+    print(f"USD Price: {_format_money(price.price_usd)}")
+    print(f"24h Change: {_format_percentage(price.price_change_24h)}")
+    print(f"24h High USD: {_format_money(price.high_24h_usd)}")
+    print(f"24h Low USD: {_format_money(price.low_24h_usd)}")
+    print(f"24h Volume USD: {_format_money(price.volume_24h_usd)}")
     print(f"Market Cap USD: {_format_money(price.market_cap_usd)}")
-    print(f"Market Cap Change 24j: {_format_money(price.market_cap_change_24h)}")
+    print(f"Market Cap 24h Change: {_format_money(price.market_cap_change_24h)}")
     print(f"Circulating Supply: {_format_number(price.circulating_supply)}")
     print(f"Total Supply: {_format_number(price.total_supply)}")
     print(f"Max Supply: {_format_number(price.max_supply)}")

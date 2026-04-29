@@ -85,7 +85,7 @@ async def async_get_balances(address: str) -> list[NativeBalance]:
     )
     if not balances and errors:
         logger.error("rpc_balance_failed duration_ms=%s", elapsed_ms(started))
-        raise RpcBalanceError("Semua RPC gagal dihubungi.")
+        raise RpcBalanceError("All RPC endpoints failed.")
 
     return balances
 
@@ -122,10 +122,10 @@ async def async_get_solana_balance(address: str) -> NativeBalance:
         data = response.json()
     except ValueError as exc:
         logger.warning("solana_rpc_json_error duration_ms=%s", elapsed_ms(started))
-        raise RpcBalanceError("Response RPC Solana bukan JSON valid.") from exc
+        raise RpcBalanceError("Solana RPC response is not valid JSON.") from exc
 
     if not isinstance(data, dict):
-        raise RpcBalanceError("Format response RPC Solana tidak sesuai.")
+        raise RpcBalanceError("Solana RPC response format is invalid.")
 
     error = data.get("error")
     if error:
@@ -133,11 +133,11 @@ async def async_get_solana_balance(address: str) -> NativeBalance:
 
     result = data.get("result")
     if not isinstance(result, dict):
-        raise RpcBalanceError("Result balance RPC Solana tidak valid.")
+        raise RpcBalanceError("Solana RPC balance result is invalid.")
 
     lamports = result.get("value")
     if not isinstance(lamports, int):
-        raise RpcBalanceError("Value balance RPC Solana tidak valid.")
+        raise RpcBalanceError("Solana RPC balance value is invalid.")
 
     balance = Decimal(lamports) / LAMPORTS_PER_SOL
     return NativeBalance("Solana", "SOL", balance, SOLANA_RPC_URL)
@@ -190,7 +190,7 @@ async def post_rpc_with_retry(
         except httpx.RequestError as exc:
             raise RpcBalanceError(str(exc)) from exc
 
-    raise RpcBalanceError("RPC gagal setelah retry.") from last_exc
+    raise RpcBalanceError("RPC failed after retries.") from last_exc
 
 
 async def async_get_native_balance(
@@ -230,10 +230,10 @@ async def async_get_native_balance(
             chain.chain_name,
             elapsed_ms(started),
         )
-        raise RpcBalanceError("Response RPC bukan JSON valid.") from exc
+        raise RpcBalanceError("RPC response is not valid JSON.") from exc
 
     if not isinstance(data, dict):
-        raise RpcBalanceError("Format response RPC tidak sesuai.")
+        raise RpcBalanceError("RPC response format is invalid.")
 
     error = data.get("error")
     if error:
@@ -241,7 +241,7 @@ async def async_get_native_balance(
 
     result = data.get("result")
     if not isinstance(result, str) or not result.startswith("0x"):
-        raise RpcBalanceError("Result balance RPC tidak valid.")
+        raise RpcBalanceError("RPC balance result is invalid.")
 
     balance_wei = int(result, 16)
     balance = Decimal(balance_wei) / WEI_PER_NATIVE

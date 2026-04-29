@@ -55,14 +55,14 @@ async def async_convert_currency(amount: float, from_currency: str, to_currency:
     to_currency = to_currency.strip().lower()
 
     if not from_currency:
-        raise CurrencyError("Currency asal tidak boleh kosong.")
+        raise CurrencyError("Source currency cannot be empty.")
     if not to_currency:
-        raise CurrencyError("Currency tujuan tidak boleh kosong.")
+        raise CurrencyError("Target currency cannot be empty.")
 
     rates = await async_get_exchange_rates(from_currency)
     rate = rates.get(to_currency)
     if rate is None:
-        raise CurrencyError(f"Currency tujuan tidak didukung: {to_currency.upper()}.")
+        raise CurrencyError(f"Target currency is not supported: {to_currency.upper()}.")
 
     return amount * rate
 
@@ -71,14 +71,14 @@ async def async_convert_currency(amount: float, from_currency: str, to_currency:
 async def async_get_exchange_rates(base_currency: str) -> dict[str, float]:
     base_currency = base_currency.strip().lower()
     if not base_currency:
-        raise CurrencyError("Base currency tidak boleh kosong.")
+        raise CurrencyError("Base currency cannot be empty.")
 
     payload = await _get_json(
         f"{PRIMARY_URL}/{base_currency}.json", f"{FALLBACK_URL}/{base_currency}.json"
     )
     rates = payload.get(base_currency)
     if not isinstance(rates, dict):
-        raise CurrencyError(f"Format rate currency {base_currency.upper()} tidak sesuai.")
+        raise CurrencyError(f"Currency rate format for {base_currency.upper()} is invalid.")
 
     parsed_rates: dict[str, float] = {}
     for code, rate in rates.items():
@@ -130,15 +130,15 @@ async def _get_json(primary_url: str, fallback_url: str) -> dict[str, Any]:
                 elapsed_ms(started),
                 exc.__class__.__name__,
             )
-            raise CurrencyError(f"Gagal menghubungi currency API: {exc}") from exc
+            raise CurrencyError(f"Failed to contact currency API: {exc}") from exc
 
     try:
         payload = response.json()
     except ValueError as exc:
         logger.warning("json_error provider=currency duration_ms=%s", elapsed_ms(started))
-        raise CurrencyError("Response currency API bukan JSON valid.") from exc
+        raise CurrencyError("Currency API response is not valid JSON.") from exc
 
     if not isinstance(payload, dict):
-        raise CurrencyError("Format response currency API tidak sesuai.")
+        raise CurrencyError("Currency API response format is invalid.")
 
     return payload

@@ -96,7 +96,7 @@ CHAIN_ALIASES = {
 @async_ttl_cache(ttl_seconds=20, maxsize=64)
 async def async_get_gas_prices(chain_query: str = "") -> list[GasPrice]:
     if COOLDOWN.is_active():
-        raise GasTrackerError("Gas tracker sedang cooldown. Coba lagi beberapa saat.")
+        raise GasTrackerError("Gas tracker is cooling down. Try again in a moment.")
 
     started = start_timer()
     chains = filtered_chains(chain_query)
@@ -125,7 +125,7 @@ async def async_get_gas_prices(chain_query: str = "") -> list[GasPrice]:
     )
     if not gas_prices and errors:
         COOLDOWN.activate(RATE_LIMIT_COOLDOWN_SECONDS)
-        raise GasTrackerError("Semua RPC gas gagal dihubungi.")
+        raise GasTrackerError("All gas RPC endpoints failed.")
 
     return gas_prices
 
@@ -145,7 +145,7 @@ def filtered_chains(chain_query: str) -> list[GasChain]:
     ]
     if not chains:
         raise GasTrackerError(
-            "Chain gas tidak didukung. Contoh: /gas eth, /gas base, /gas bnb, /gas polygon."
+            "Gas chain is not supported. Examples: /gas eth, /gas base, /gas bnb, /gas polygon."
         )
 
     return chains
@@ -206,7 +206,7 @@ async def get_gas_price_wei(client: httpx.AsyncClient, chain: GasChain, started:
     data = await post_rpc_json_with_retry(client, chain, payload, started)
     result = data.get("result")
     if not isinstance(result, str) or not result.startswith("0x"):
-        raise GasTrackerError("Result eth_gasPrice tidak valid.")
+        raise GasTrackerError("eth_gasPrice result is invalid.")
     return int(result, 16)
 
 
@@ -242,7 +242,7 @@ async def get_fee_history_estimate(
     data = await post_rpc_json_with_retry(client, chain, payload, started)
     result = data.get("result")
     if not isinstance(result, dict):
-        raise GasTrackerError("Result eth_feeHistory tidak valid.")
+        raise GasTrackerError("eth_feeHistory result is invalid.")
 
     base_fees = result.get("baseFeePerGas")
     rewards = result.get("reward")
@@ -264,7 +264,7 @@ async def post_rpc_json_with_retry(
             response.raise_for_status()
             data = response.json()
             if not isinstance(data, dict):
-                raise GasTrackerError("Format response RPC gas tidak sesuai.")
+                raise GasTrackerError("Gas RPC response format is invalid.")
             error = data.get("error")
             if error:
                 raise GasTrackerError(str(error))
@@ -291,9 +291,9 @@ async def post_rpc_json_with_retry(
         except httpx.HTTPError as exc:
             raise GasTrackerError(str(exc)) from exc
         except ValueError as exc:
-            raise GasTrackerError("Response RPC gas bukan JSON valid.") from exc
+            raise GasTrackerError("Gas RPC response is not valid JSON.") from exc
 
-    raise GasTrackerError("RPC gas gagal setelah retry.") from last_exc
+    raise GasTrackerError("Gas RPC failed after retries.") from last_exc
 
 
 def hex_list_last_int(value: Any) -> int | None:

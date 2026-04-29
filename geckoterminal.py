@@ -63,12 +63,12 @@ async def async_search_pool_prices(query: str, limit: int = 10) -> list[PoolPric
 )
 async def _async_search_pool_prices(query: str, limit: int = 10) -> list[PoolPrice]:
     if not query:
-        raise GeckoTerminalNotFoundError("Symbol atau kata pencarian tidak boleh kosong.")
+        raise GeckoTerminalNotFoundError("Symbol or search query cannot be empty.")
 
     payload = await _get_json(f"{BASE_URL}/search/pools", {"query": query})
     data = payload.get("data")
     if not isinstance(data, list) or not data:
-        raise GeckoTerminalNotFoundError("Pool tidak ditemukan dari symbol tersebut.")
+        raise GeckoTerminalNotFoundError("Pool was not found for that symbol.")
 
     results: list[PoolPrice] = []
     for pool in data[:limit]:
@@ -82,7 +82,7 @@ async def _async_search_pool_prices(query: str, limit: int = 10) -> list[PoolPri
         results.append(_parse_pool_price(pool, attributes))
 
     if not results:
-        raise GeckoTerminalNotFoundError("Format hasil pencarian GeckoTerminal tidak sesuai.")
+        raise GeckoTerminalNotFoundError("GeckoTerminal search response format is invalid.")
 
     return results
 
@@ -92,19 +92,19 @@ async def async_get_pool_price(network: str, pool_address: str) -> PoolPrice:
     pool_address = pool_address.strip()
 
     if not network:
-        raise GeckoTerminalError("Network tidak boleh kosong.")
+        raise GeckoTerminalError("Network cannot be empty.")
     if not pool_address:
-        raise GeckoTerminalError("Pool address tidak boleh kosong.")
+        raise GeckoTerminalError("Pool address cannot be empty.")
 
     payload = await _get_json(f"{BASE_URL}/networks/{network}/pools/{pool_address}")
 
     data = payload.get("data")
     if not isinstance(data, dict):
-        raise GeckoTerminalError("Format response GeckoTerminal tidak sesuai.")
+        raise GeckoTerminalError("GeckoTerminal response format is invalid.")
 
     attributes = data.get("attributes")
     if not isinstance(attributes, dict):
-        raise GeckoTerminalError("Data pool tidak memiliki attributes.")
+        raise GeckoTerminalError("Pool data does not contain attributes.")
 
     return _parse_pool_price(data, attributes)
 
@@ -112,7 +112,7 @@ async def async_get_pool_price(network: str, pool_address: str) -> PoolPrice:
 async def _get_json(url: str, params: dict[str, str] | None = None) -> dict[str, Any]:
     endpoint = url_path(url)
     if COOLDOWN.is_active():
-        raise GeckoTerminalTransientError("GeckoTerminal sedang cooldown karena rate limit. Coba lagi beberapa saat.")
+        raise GeckoTerminalTransientError("GeckoTerminal is cooling down due to rate limits. Try again in a moment.")
 
     started = start_timer()
     logger.info("request_start provider=geckoterminal endpoint=%s", endpoint)
@@ -128,12 +128,12 @@ async def _get_json(url: str, params: dict[str, str] | None = None) -> dict[str,
     )
     if response.status_code == 429:
         COOLDOWN.activate(RATE_LIMIT_COOLDOWN_SECONDS)
-        raise GeckoTerminalTransientError("Rate limit GeckoTerminal tercapai. Coba lagi beberapa saat.")
+        raise GeckoTerminalTransientError("GeckoTerminal rate limit reached. Try again in a moment.")
     if response.status_code == 404:
-        raise GeckoTerminalNotFoundError("Data tidak ditemukan di GeckoTerminal.")
+        raise GeckoTerminalNotFoundError("Data was not found on GeckoTerminal.")
     if not response.is_success:
         raise GeckoTerminalTransientError(
-            f"GeckoTerminal mengembalikan error HTTP {response.status_code}."
+            f"GeckoTerminal returned HTTP error {response.status_code}."
         )
 
     try:
@@ -144,10 +144,10 @@ async def _get_json(url: str, params: dict[str, str] | None = None) -> dict[str,
             endpoint,
             elapsed_ms(started),
         )
-        raise GeckoTerminalTransientError("Response GeckoTerminal bukan JSON valid.") from exc
+        raise GeckoTerminalTransientError("GeckoTerminal response is not valid JSON.") from exc
 
     if not isinstance(payload, dict):
-        raise GeckoTerminalTransientError("Format response GeckoTerminal tidak sesuai.")
+        raise GeckoTerminalTransientError("GeckoTerminal response format is invalid.")
 
     return payload
 
@@ -182,7 +182,7 @@ async def _request_with_retry(
                 elapsed_ms(started),
                 exc.__class__.__name__,
             )
-            raise GeckoTerminalTransientError(f"Gagal menghubungi GeckoTerminal: {exc}") from exc
+            raise GeckoTerminalTransientError(f"Failed to contact GeckoTerminal: {exc}") from exc
 
     COOLDOWN.activate(REQUEST_ERROR_COOLDOWN_SECONDS)
     logger.warning(
@@ -191,7 +191,7 @@ async def _request_with_retry(
         elapsed_ms(started),
         last_exc.__class__.__name__ if last_exc else "RequestError",
     )
-    raise GeckoTerminalTransientError("Gagal menghubungi GeckoTerminal setelah retry.") from last_exc
+    raise GeckoTerminalTransientError("Failed to contact GeckoTerminal after retries.") from last_exc
 
 
 def _parse_pool_price(data: dict[str, Any], attributes: dict[str, Any]) -> PoolPrice:

@@ -172,7 +172,7 @@ async def delete_callback(_: Client, callback_query: CallbackQuery) -> None:
 async def list_callback(_: Client, callback_query: CallbackQuery) -> None:
     query = (callback_query.data or "").removeprefix(LIST_CALLBACK_PREFIX).strip()
     if not query:
-        await callback_query.answer("Query list kosong.", show_alert=True)
+        await callback_query.answer("List query is empty.", show_alert=True)
         return
 
     try:
@@ -191,7 +191,7 @@ async def list_callback(_: Client, callback_query: CallbackQuery) -> None:
 async def dex_callback(_: Client, callback_query: CallbackQuery) -> None:
     query = (callback_query.data or "").removeprefix(DEX_CALLBACK_PREFIX).strip()
     if not query:
-        await callback_query.answer("Query dex kosong.", show_alert=True)
+        await callback_query.answer("DEX query is empty.", show_alert=True)
         return
 
     try:
@@ -210,7 +210,7 @@ async def dex_callback(_: Client, callback_query: CallbackQuery) -> None:
 async def gas_callback(_: Client, callback_query: CallbackQuery) -> None:
     query = (callback_query.data or "").removeprefix(GAS_CALLBACK_PREFIX).strip()
     if not query:
-        await callback_query.answer("Chain gas kosong.", show_alert=True)
+        await callback_query.answer("Gas chain is empty.", show_alert=True)
         return
 
     try:
@@ -228,8 +228,8 @@ async def gas_callback(_: Client, callback_query: CallbackQuery) -> None:
 
 async def start(_: Client, message: Message) -> None:
     text = (
-        f"{bold('Halo!')} Kirim jumlah coin, conversion, address, atau math.\n\n"
-        f"{underline('Contoh')}\n"
+        f"{bold('Hello!')} Send a coin amount, conversion, address, or math expression.\n\n"
+        f"{underline('Examples')}\n"
         f"├ {code('/price BTC')}\n"
         f"├ {code('1 BTC')}\n"
         f"├ {code('1 BTC ETH')}\n"
@@ -244,7 +244,7 @@ async def start(_: Client, message: Message) -> None:
 async def price_command(_: Client, message: Message) -> None:
     query = _command_argument(message.text)
     if not query:
-        await reply_with_delete(message, f"Gunakan format: {code('/price BTC')}")
+        await reply_with_delete(message, f"Use format: {code('/price BTC')}")
         return
 
     await send_price(message, query)
@@ -253,7 +253,7 @@ async def price_command(_: Client, message: Message) -> None:
 async def list_command(_: Client, message: Message) -> None:
     query = _command_argument(message.text)
     if not query:
-        await reply_with_delete(message, f"Gunakan format: {code('/list MON')}")
+        await reply_with_delete(message, f"Use format: {code('/list MON')}")
         return
 
     try:
@@ -690,7 +690,7 @@ async def async_get_geckoterminal_usd_price_source(query: str) -> UsdPriceSource
     pool = (await async_search_pool_prices(query, limit=1))[0]
     price_usd = _float_from_text(pool.price_usd)
     if price_usd is None:
-        raise GeckoTerminalError("Harga USD GeckoTerminal tidak tersedia untuk conversion.")
+        raise GeckoTerminalError("GeckoTerminal USD price is not available for conversion.")
 
     return UsdPriceSource(
         query=query,
@@ -703,7 +703,7 @@ async def async_get_geckoterminal_usd_price_source(query: str) -> UsdPriceSource
 
 def usd_price_source_from_coin_price(price: CoinPrice) -> UsdPriceSource:
     if price.price_usd is None:
-        raise CoinGeckoError("Harga coin tidak tersedia di CoinGecko.")
+        raise CoinGeckoError("Coin price is not available on CoinGecko.")
 
     return UsdPriceSource(
         query=price.coin_id,
@@ -868,7 +868,7 @@ def format_wallet_balances(address: str, balances: list[NativeBalance]) -> str:
 
     lines = [f"👛 {bold('RPC Wallet Balance')}", f"├ Address: {code(address)}"]
     if not positive_balances:
-        lines.append(f"├ Status: {italic('Tidak ada native balance > 0 di chain yang dicek')}")
+        lines.append(f"├ Status: {italic('No native balance > 0 found on checked chains')}")
 
     for index, balance in enumerate(visible_balances[:10]):
         branch = "└" if index == min(len(visible_balances), 10) - 1 else "├"
@@ -950,8 +950,8 @@ def format_gas_chain_picker() -> str:
     return "\n".join(
         [
             f"⛽ {bold('Gas Tracker')}",
-            f"├ {underline('Pilih chain di tombol bawah')}",
-            f"├ {code('/gas eth')} untuk Ethereum langsung",
+            f"├ {underline('Select a chain from the buttons below')}",
+            f"├ {code('/gas eth')} to open Ethereum directly",
             f"└ {italic('Source: Public RPC')}",
         ]
     )
@@ -969,7 +969,7 @@ def format_gas_prices(prices: list[GasPrice]) -> str:
         else:
             lines.append(f"├ Gas Price: {h(_format_gwei_with_usd(price.gas_price_gwei, price.native_price_usd))}")
 
-    lines.append(f"├ Est: {italic('standar transfer 21,000 gas')}")
+    lines.append(f"├ Est: {italic('standard 21,000 gas transfer')}")
     lines.append(f"└ {italic('Source: Public RPC + CoinGecko/GeckoTerminal')}")
     return "\n".join(lines)
 
@@ -1042,7 +1042,7 @@ def evaluate_math_expression(expression: str) -> float | int:
     try:
         tree = ast.parse(expression, mode="eval")
     except SyntaxError as exc:
-        raise ValueError("Format math tidak valid.") from exc
+        raise ValueError("Invalid math format.") from exc
 
     return evaluate_math_node(tree.body)
 
@@ -1056,16 +1056,16 @@ def evaluate_math_node(node: ast.AST) -> float | int:
     if isinstance(node, ast.BinOp):
         operator_func = MATH_OPERATORS.get(type(node.op))
         if operator_func is None:
-            raise ValueError("Operator math tidak didukung.")
+            raise ValueError("Unsupported math operator.")
         left = evaluate_math_node(node.left)
         right = evaluate_math_node(node.right)
         if isinstance(node.op, ast.Pow) and abs(right) > 10:
-            raise ValueError("Pangkat terlalu besar.")
+            raise ValueError("Exponent is too large.")
         result = operator_func(left, right)
         if abs(result) > MAX_MATH_RESULT_ABS:
-            raise ValueError("Hasil math terlalu besar.")
+            raise ValueError("Math result is too large.")
         return result
-    raise ValueError("Format math tidak valid.")
+    raise ValueError("Invalid math format.")
 
 
 def format_math_result(expression: str, result: float | int) -> str:
@@ -1204,7 +1204,7 @@ def create_app() -> Client:
     ]
     if missing:
         raise RuntimeError(
-            f"Environment variable belum diatur: {', '.join(missing)}. Buat file .env dari .env.example."
+            f"Missing environment variables: {', '.join(missing)}. Create a .env file from .env.example."
         )
 
     workdir = os.getenv("PYROGRAM_WORKDIR", ".")
@@ -1237,7 +1237,7 @@ def main() -> int:
         print(f"Error: {exc}")
         return 1
 
-    print("Bot Telegram Pyrogram berjalan. Tekan Ctrl+C untuk berhenti.")
+    print("Pyrogram Telegram bot is running. Press Ctrl+C to stop.")
     try:
         bot.run()
     finally:

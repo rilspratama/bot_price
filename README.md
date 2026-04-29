@@ -56,8 +56,8 @@ RPC_BALANCE_CHAINS=Ethereum,Base,BNB
 Clone the repository:
 
 ```bash
-git clone <repo-url>
-cd <repo-folder>
+git clone https://github.com/rilspratama/bot_price.git
+cd bot_price
 ```
 
 Create and edit `.env`:
@@ -97,8 +97,8 @@ docker compose up -d --build
 Clone the repository:
 
 ```bash
-git clone <repo-url>
-cd <repo-folder>
+git clone https://github.com/rilspratama/bot_price.git
+cd bot_price
 ```
 
 Create a virtual environment:
@@ -200,18 +200,3 @@ This bot uses free public endpoints:
 - A public currency API for fiat conversions.
 
 Public endpoints may rate-limit or timeout. The bot includes caching, retries, and provider cooldowns to reduce this risk.
-
-## GitHub Upload Checklist
-
-Make sure `.env`, `*.session`, `__pycache__/`, and local runtime files are not committed. They are already covered by `.gitignore` and `.dockerignore`.
-
-Initialize and push the repository:
-
-```bash
-git init
-git add .
-git commit -m "Initial crypto price bot"
-git branch -M main
-git remote add origin <repo-url>
-git push -u origin main
-```

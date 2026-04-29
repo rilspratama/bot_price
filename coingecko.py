@@ -83,12 +83,12 @@ async def async_search_coins(query: str, limit: int = 10) -> list[CoinSearchResu
 )
 async def _async_search_coins(query: str, limit: int = 10) -> list[CoinSearchResult]:
     if not query:
-        raise CoinGeckoNotFoundError("Symbol atau nama coin tidak boleh kosong.")
+        raise CoinGeckoNotFoundError("Coin symbol or name cannot be empty.")
 
     payload = await _get_json(f"{BASE_URL}/search", {"query": query})
     coins = payload.get("coins")
     if not isinstance(coins, list) or not coins:
-        raise CoinGeckoNotFoundError("Coin tidak ditemukan di CoinGecko.")
+        raise CoinGeckoNotFoundError("Coin was not found on CoinGecko.")
 
     results: list[CoinSearchResult] = []
     for coin in coins[:limit]:
@@ -111,7 +111,7 @@ async def _async_search_coins(query: str, limit: int = 10) -> list[CoinSearchRes
         )
 
     if not results:
-        raise CoinGeckoNotFoundError("Format hasil pencarian CoinGecko tidak sesuai.")
+        raise CoinGeckoNotFoundError("CoinGecko search response format is invalid.")
 
     return results
 
@@ -131,7 +131,7 @@ def _find_exact_symbol_match(
 async def async_get_coin_price(coin_id: str) -> CoinPrice:
     coin_id = coin_id.strip().lower()
     if not coin_id:
-        raise CoinGeckoError("Coin ID tidak boleh kosong.")
+        raise CoinGeckoError("Coin ID cannot be empty.")
 
     payload = await _get_json(
         f"{BASE_URL}/coins/markets",
@@ -143,11 +143,11 @@ async def async_get_coin_price(coin_id: str) -> CoinPrice:
     )
 
     if not isinstance(payload, list) or not payload:
-        raise CoinGeckoError("Harga coin tidak ditemukan di CoinGecko.")
+        raise CoinGeckoError("Coin price was not found on CoinGecko.")
 
     coin = payload[0]
     if not isinstance(coin, dict):
-        raise CoinGeckoError("Format harga CoinGecko tidak sesuai.")
+        raise CoinGeckoError("CoinGecko price response format is invalid.")
 
     return CoinPrice(
         coin_id=str(coin.get("id") or coin_id),
@@ -172,7 +172,7 @@ async def async_get_coin_price(coin_id: str) -> CoinPrice:
 async def _get_json(url: str, params: dict[str, str] | None = None) -> Any:
     endpoint = url_path(url)
     if COOLDOWN.is_active():
-        raise CoinGeckoTransientError("CoinGecko sedang cooldown karena rate limit. Coba lagi beberapa saat.")
+        raise CoinGeckoTransientError("CoinGecko is cooling down due to rate limits. Try again in a moment.")
 
     started = start_timer()
     logger.info("request_start provider=coingecko endpoint=%s", endpoint)
@@ -188,11 +188,11 @@ async def _get_json(url: str, params: dict[str, str] | None = None) -> Any:
     )
     if response.status_code == 429:
         COOLDOWN.activate(RATE_LIMIT_COOLDOWN_SECONDS)
-        raise CoinGeckoTransientError("Rate limit CoinGecko tercapai. Coba lagi beberapa saat.")
+        raise CoinGeckoTransientError("CoinGecko rate limit reached. Try again in a moment.")
     if response.status_code == 404:
-        raise CoinGeckoNotFoundError("Data tidak ditemukan di CoinGecko.")
+        raise CoinGeckoNotFoundError("Data was not found on CoinGecko.")
     if not response.is_success:
-        raise CoinGeckoTransientError(f"CoinGecko mengembalikan error HTTP {response.status_code}.")
+        raise CoinGeckoTransientError(f"CoinGecko returned HTTP error {response.status_code}.")
 
     try:
         return response.json()
@@ -202,7 +202,7 @@ async def _get_json(url: str, params: dict[str, str] | None = None) -> Any:
             endpoint,
             elapsed_ms(started),
         )
-        raise CoinGeckoTransientError("Response CoinGecko bukan JSON valid.") from exc
+        raise CoinGeckoTransientError("CoinGecko response is not valid JSON.") from exc
 
 
 async def _request_with_retry(
@@ -235,7 +235,7 @@ async def _request_with_retry(
                 elapsed_ms(started),
                 exc.__class__.__name__,
             )
-            raise CoinGeckoTransientError(f"Gagal menghubungi CoinGecko: {exc}") from exc
+            raise CoinGeckoTransientError(f"Failed to contact CoinGecko: {exc}") from exc
 
     COOLDOWN.activate(REQUEST_ERROR_COOLDOWN_SECONDS)
     logger.warning(
@@ -244,7 +244,7 @@ async def _request_with_retry(
         elapsed_ms(started),
         last_exc.__class__.__name__ if last_exc else "RequestError",
     )
-    raise CoinGeckoTransientError("Gagal menghubungi CoinGecko setelah retry.") from last_exc
+    raise CoinGeckoTransientError("Failed to contact CoinGecko after retries.") from last_exc
 
 
 def _float_or_none(value: Any) -> float | None:
