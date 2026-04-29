@@ -35,7 +35,8 @@ logger = logging.getLogger(__name__)
 app: Client | None = None
 
 
-DELETE_CALLBACK = "delete_message"
+DELETE_CALLBACK_PREFIX = "delete:"
+DELETE_CALLBACK_LEGACY = "delete_message"
 LIST_CALLBACK_PREFIX = "list:"
 DEX_CALLBACK_PREFIX = "dex:"
 GAS_CALLBACK_PREFIX = "gas:"
@@ -99,15 +100,19 @@ def format_error(exc: Exception) -> str:
 
 
 async def reply_with_delete(message: Message, text: str) -> None:
-    await message.reply_text(text, reply_markup=delete_keyboard(), parse_mode=enums.ParseMode.HTML)
+    await message.reply_text(text, reply_markup=delete_keyboard(_user_id(message)), parse_mode=enums.ParseMode.HTML)
 
 
 async def reply_price(message: Message, text: str, query: str) -> None:
-    await message.reply_text(text, reply_markup=price_keyboard(query), parse_mode=enums.ParseMode.HTML)
+    await message.reply_text(text, reply_markup=price_keyboard(query, _user_id(message)), parse_mode=enums.ParseMode.HTML)
 
 
 async def reply_contract(message: Message, text: str, contract_address: str) -> None:
-    await message.reply_text(text, reply_markup=contract_keyboard(contract_address), parse_mode=enums.ParseMode.HTML)
+    await message.reply_text(
+        text,
+        reply_markup=contract_keyboard(contract_address, _user_id(message)),
+        parse_mode=enums.ParseMode.HTML,
+    )
 
 
 async def reply_final_response(message: Message, response: FinalResponse) -> None:
@@ -120,11 +125,26 @@ async def reply_final_response(message: Message, response: FinalResponse) -> Non
     await reply_with_delete(message, response.text)
 
 
-def delete_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([[InlineKeyboardButton("Delete", callback_data=DELETE_CALLBACK)]])
+def delete_callback_data(owner_id: int | None) -> str:
+    if owner_id is None:
+        return DELETE_CALLBACK_LEGACY
+    return f"{DELETE_CALLBACK_PREFIX}{owner_id}"
 
 
-def price_keyboard(query: str) -> InlineKeyboardMarkup:
+def delete_callback_owner_id(data: str) -> int | None:
+    if not data.startswith(DELETE_CALLBACK_PREFIX):
+        return None
+    value = data.removeprefix(DELETE_CALLBACK_PREFIX)
+    if not value.isdigit():
+        return None
+    return int(value)
+
+
+def delete_keyboard(owner_id: int | None = None) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([[InlineKeyboardButton("Delete", callback_data=delete_callback_data(owner_id))]])
+
+
+def price_keyboard(query: str, owner_id: int | None = None) -> InlineKeyboardMarkup:
     query = query[:32]
     return InlineKeyboardMarkup(
         [
@@ -132,22 +152,22 @@ def price_keyboard(query: str) -> InlineKeyboardMarkup:
                 InlineKeyboardButton("List", callback_data=f"{LIST_CALLBACK_PREFIX}{query}"),
                 InlineKeyboardButton("Dex", callback_data=f"{DEX_CALLBACK_PREFIX}{query}"),
             ],
-            [InlineKeyboardButton("Delete", callback_data=DELETE_CALLBACK)],
+            [InlineKeyboardButton("Delete", callback_data=delete_callback_data(owner_id))],
         ]
     )
 
 
-def contract_keyboard(contract_address: str) -> InlineKeyboardMarkup:
+def contract_keyboard(contract_address: str, owner_id: int | None = None) -> InlineKeyboardMarkup:
     contract_address = contract_address[:42]
     return InlineKeyboardMarkup(
         [
             [InlineKeyboardButton("Dex", callback_data=f"{DEX_CALLBACK_PREFIX}{contract_address}")],
-            [InlineKeyboardButton("Delete", callback_data=DELETE_CALLBACK)],
+            [InlineKeyboardButton("Delete", callback_data=delete_callback_data(owner_id))],
         ]
     )
 
 
-def gas_keyboard() -> InlineKeyboardMarkup:
+def gas_keyboard(owner_id: int | None = None) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = []
     for index in range(0, len(GAS_CHAINS), 2):
         rows.append(
@@ -159,11 +179,17 @@ def gas_keyboard() -> InlineKeyboardMarkup:
                 for chain in GAS_CHAINS[index : index + 2]
             ]
         )
-    rows.append([InlineKeyboardButton("Delete", callback_data=DELETE_CALLBACK)])
+    rows.append([InlineKeyboardButton("Delete", callback_data=delete_callback_data(owner_id))])
     return InlineKeyboardMarkup(rows)
 
 
 async def delete_callback(_: Client, callback_query: CallbackQuery) -> None:
+    owner_id = delete_callback_owner_id(callback_query.data or "")
+    user_id = callback_query.from_user.id if callback_query.from_user else None
+    if owner_id is not None and user_id != owner_id:
+        await callback_query.answer("Only the requester can delete this message.", show_alert=True)
+        return
+
     await callback_query.answer()
     if callback_query.message:
         await callback_query.message.delete()
@@ -184,7 +210,7 @@ async def list_callback(_: Client, callback_query: CallbackQuery) -> None:
     await callback_query.answer()
     if callback_query.message:
         await callback_query.message.edit_text(
-            format_coin_results(results), reply_markup=delete_keyboard(), parse_mode=enums.ParseMode.HTML
+            format_coin_results(results), reply_markup=delete_keyboard(callback_query.from_user.id), parse_mode=enums.ParseMode.HTML
         )
 
 
@@ -203,7 +229,7 @@ async def dex_callback(_: Client, callback_query: CallbackQuery) -> None:
     await callback_query.answer()
     if callback_query.message:
         await callback_query.message.edit_text(
-            format_dex_pools(pools), reply_markup=delete_keyboard(), parse_mode=enums.ParseMode.HTML
+            format_dex_pools(pools), reply_markup=delete_keyboard(callback_query.from_user.id), parse_mode=enums.ParseMode.HTML
         )
 
 
@@ -222,7 +248,7 @@ async def gas_callback(_: Client, callback_query: CallbackQuery) -> None:
     await callback_query.answer()
     if callback_query.message:
         await callback_query.message.edit_text(
-            format_gas_prices(prices), reply_markup=gas_keyboard(), parse_mode=enums.ParseMode.HTML
+            format_gas_prices(prices), reply_markup=gas_keyboard(callback_query.from_user.id), parse_mode=enums.ParseMode.HTML
         )
 
 
@@ -274,7 +300,7 @@ async def gas_command(_: Client, message: Message) -> None:
     query = _command_argument(message.text)
     if not query:
         await message.reply_text(
-            format_gas_chain_picker(), reply_markup=gas_keyboard(), parse_mode=enums.ParseMode.HTML
+            format_gas_chain_picker(), reply_markup=gas_keyboard(_user_id(message)), parse_mode=enums.ParseMode.HTML
         )
         return
 
@@ -1238,7 +1264,7 @@ def create_app() -> Client:
         bot_token=bot_token,
         workdir=workdir,
     )
-    client.add_handler(CallbackQueryHandler(delete_callback, filters.regex(f"^{DELETE_CALLBACK}$")))
+    client.add_handler(CallbackQueryHandler(delete_callback, filters.regex(f"^({DELETE_CALLBACK_LEGACY}|{DELETE_CALLBACK_PREFIX})")))
     client.add_handler(CallbackQueryHandler(list_callback, filters.regex(f"^{LIST_CALLBACK_PREFIX}")))
     client.add_handler(CallbackQueryHandler(dex_callback, filters.regex(f"^{DEX_CALLBACK_PREFIX}")))
     client.add_handler(CallbackQueryHandler(gas_callback, filters.regex(f"^{GAS_CALLBACK_PREFIX}")))
