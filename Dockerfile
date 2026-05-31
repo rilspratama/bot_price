@@ -13,6 +13,10 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
+RUN addgroup --system botgroup && adduser --system --ingroup botgroup botuser
+
 COPY . .
+
+USER botuser
 
 CMD ["python", "telegram_bot.py"]
