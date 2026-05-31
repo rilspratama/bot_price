@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 import httpx
@@ -10,6 +11,8 @@ from http_client import get_async_client
 from logging_utils import elapsed_ms, start_timer, url_path
 
 logger = logging.getLogger(__name__)
+
+_CURRENCY_CODE_RE = re.compile(r"^[a-z]{2,5}$")
 
 
 PRIMARY_URL = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies"
@@ -50,28 +53,36 @@ def is_priority_fiat_currency(currency: str) -> bool:
     return currency in FIAT_PRIORITY_CODES
 
 
-async def async_convert_currency(amount: float, from_currency: str, to_currency: str) -> float:
-    from_currency = from_currency.strip().lower()
-    to_currency = to_currency.strip().lower()
+def _validate_currency_code(code: str, label: str) -> str:
+    code = code.strip().lower()
+    if not code:
+        raise CurrencyError(f"{label} currency cannot be empty.")
+    if not _CURRENCY_CODE_RE.match(code):
+        raise CurrencyError(
+            f"Invalid currency code: {code.upper()}. "
+            "Currency codes should be 2–5 letters (e.g. USD, EUR)."
+        )
+    return code
 
-    if not from_currency:
-        raise CurrencyError("Source currency cannot be empty.")
-    if not to_currency:
-        raise CurrencyError("Target currency cannot be empty.")
+
+async def async_convert_currency(amount: float, from_currency: str, to_currency: str) -> float:
+    from_currency = _validate_currency_code(from_currency, "Source")
+    to_currency = _validate_currency_code(to_currency, "Target")
 
     rates = await async_get_exchange_rates(from_currency)
     rate = rates.get(to_currency)
     if rate is None:
-        raise CurrencyError(f"Target currency is not supported: {to_currency.upper()}.")
+        raise CurrencyError(
+            f"Currency not found: {to_currency.upper()}. "
+            "Please check the currency code and try again."
+        )
 
     return amount * rate
 
 
 @async_ttl_cache(ttl_seconds=21600, maxsize=64)
 async def async_get_exchange_rates(base_currency: str) -> dict[str, float]:
-    base_currency = base_currency.strip().lower()
-    if not base_currency:
-        raise CurrencyError("Base currency cannot be empty.")
+    base_currency = _validate_currency_code(base_currency, "Base")
 
     payload = await _get_json(
         f"{PRIMARY_URL}/{base_currency}.json", f"{FALLBACK_URL}/{base_currency}.json"
@@ -88,6 +99,24 @@ async def async_get_exchange_rates(base_currency: str) -> dict[str, float]:
             continue
 
     return parsed_rates
+
+
+def _friendly_network_error(exc: httpx.HTTPError) -> str:
+    if isinstance(exc, httpx.TimeoutException):
+        return "Currency service timed out. Please try again later."
+    if isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout)):
+        return "Could not connect to currency service. Please try again later."
+    if isinstance(exc, httpx.HTTPStatusError):
+        status = exc.response.status_code
+        if status == 404:
+            return (
+                "Currency not found. "
+                "Please check the currency code and try again."
+            )
+        if 500 <= status < 600:
+            return "Currency service is temporarily unavailable. Please try again later."
+        return f"Currency service returned an error (HTTP {status}). Please try again later."
+    return "Could not retrieve currency data. Please try again later."
 
 
 async def _get_json(primary_url: str, fallback_url: str) -> dict[str, Any]:
@@ -130,15 +159,15 @@ async def _get_json(primary_url: str, fallback_url: str) -> dict[str, Any]:
                 elapsed_ms(started),
                 exc.__class__.__name__,
             )
-            raise CurrencyError(f"Failed to contact currency API: {exc}") from exc
+            raise CurrencyError(_friendly_network_error(exc)) from exc
 
     try:
         payload = response.json()
     except ValueError as exc:
         logger.warning("json_error provider=currency duration_ms=%s", elapsed_ms(started))
-        raise CurrencyError("Currency API response is not valid JSON.") from exc
+        raise CurrencyError("Currency API returned an invalid response. Please try again later.") from exc
 
     if not isinstance(payload, dict):
-        raise CurrencyError("Currency API response format is invalid.")
+        raise CurrencyError("Currency API returned an unexpected response format. Please try again later.")
 
     return payload
