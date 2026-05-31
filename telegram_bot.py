@@ -54,6 +54,7 @@ MATH_OPERATORS = {
     ast.Pow: operator.pow,
 }
 last_text_request_at: dict[int, float] = {}
+_allowed_user_ids: set[int] | None = None
 
 
 @dataclass(frozen=True)
@@ -253,6 +254,9 @@ async def gas_callback(_: Client, callback_query: CallbackQuery) -> None:
 
 
 async def start(_: Client, message: Message) -> None:
+    if not is_allowed_user(message):
+        return
+
     text = (
         f"{bold('Hello!')} Send a coin amount, conversion, address, or math expression.\n\n"
         f"{underline('Examples')}\n"
@@ -269,10 +273,16 @@ async def start(_: Client, message: Message) -> None:
 
 
 async def about_command(_: Client, message: Message) -> None:
+    if not is_allowed_user(message):
+        return
+
     await reply_with_delete(message, format_about())
 
 
 async def price_command(_: Client, message: Message) -> None:
+    if not is_allowed_user(message):
+        return
+
     query = _command_argument(message.text)
     if not query:
         await reply_with_delete(message, f"Use format: {code('/price BTC')}")
@@ -282,6 +292,9 @@ async def price_command(_: Client, message: Message) -> None:
 
 
 async def list_command(_: Client, message: Message) -> None:
+    if not is_allowed_user(message):
+        return
+
     query = _command_argument(message.text)
     if not query:
         await reply_with_delete(message, f"Use format: {code('/list MON')}")
@@ -297,6 +310,9 @@ async def list_command(_: Client, message: Message) -> None:
 
 
 async def gas_command(_: Client, message: Message) -> None:
+    if not is_allowed_user(message):
+        return
+
     query = _command_argument(message.text)
     if not query:
         await message.reply_text(
@@ -315,6 +331,12 @@ async def gas_command(_: Client, message: Message) -> None:
 async def text_message(_: Client, message: Message) -> None:
     query = (message.text or "").strip()
     if not query:
+        return
+
+    if not is_allowed_user(message):
+        return
+
+    if is_rate_limited(message):
         return
 
     contract_address = parse_contract_address(query)
@@ -1038,6 +1060,32 @@ def is_rate_limited(message: Message) -> bool:
     return False
 
 
+def _load_allowed_users() -> set[int] | None:
+    raw = os.getenv("ALLOWED_USERS", "").strip()
+    if not raw:
+        return None
+
+    ids: set[int] = set()
+    for item in raw.split(","):
+        item = item.strip()
+        if item.isdigit():
+            ids.add(int(item))
+
+    return ids or None
+
+
+def is_allowed_user(message: Message) -> bool:
+    global _allowed_user_ids
+    if _allowed_user_ids is None and os.getenv("ALLOWED_USERS", "").strip():
+        _allowed_user_ids = _load_allowed_users()
+
+    if _allowed_user_ids is None:
+        return True
+
+    user_id = _user_id(message)
+    return user_id is not None and user_id in _allowed_user_ids
+
+
 def parse_math_expression(text: str) -> str | None:
     value = text.strip()
     if len(value) > MAX_MATH_EXPRESSION_LENGTH:
@@ -1237,6 +1285,9 @@ def _format_percentage(value: float | None) -> str:
 
 def create_app() -> Client:
     load_dotenv()
+
+    global _allowed_user_ids
+    _allowed_user_ids = _load_allowed_users()
 
     api_id = os.getenv("TELEGRAM_API_ID")
     api_hash = os.getenv("TELEGRAM_API_HASH")
